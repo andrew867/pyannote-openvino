@@ -26,6 +26,12 @@ dependencies = [
 stt = [
     "openai-whisper>=20250625",
 ]
+test = [
+    "pytest>=8.0",
+]
+build = [
+    "build>=1.0.0",
+]
 
 [tool.setuptools.packages.find]
 where = ["."]

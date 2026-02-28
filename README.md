@@ -102,3 +102,22 @@ writes a TSV-style summary to the `--output` path for later reference.
   `ffmpeg/bin` (a copy lives in this repo for reference).
 - Whisper downloads models the first time it runs; choose a small or tiny model
   for fast iteration and pin `--stt-device` to `cpu` if your GPU is busy.
+
+## Tests
+- Install the `test` extra (and the transcription tooling) before running the suite:
+  ```bash
+  python -m pip install -e .[stt,test]
+  ```
+- Run the pytest suite to make sure the OV pipeline returns a valid annotation:
+  ```bash
+  python -m pytest
+  ```
+- The same command runs in CI (GitHub Actions, GitLab CI) and is fast enough to execute on every push/PR.
+
+## CI & Release Pipelines
+- **GitHub Actions**:
+  - `ci.yml` runs on push/PR, installs the `[stt,test]` extras, and executes `python -m pytest`.
+  - `release.yml` runs on `refs/tags/v*`, reuses the same extras plus the `build` tool, reruns the tests, builds a wheel/tarball via `python -m build`, and publishes the artifacts to a GitHub release using `softprops/action-gh-release`.
+- **GitLab CI**:
+  - `.gitlab-ci.yml` defines `test` and `release` stages. Both install the `[stt,test,build]` extras, the `test` job runs `python -m pytest`, and the `release` job (tag-only) runs `python -m build` and exposes `dist/` as an artifact for later download.
+  - Commit tags matching `v*` (for example `v0.1.0`) will trigger the release stage and produce the distributables.

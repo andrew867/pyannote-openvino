@@ -1,26 +1,24 @@
 # Phase 6 – Packaging and Documentation
 
 ## SPEC
-- Package project as `pyannote_openvino` with clean public API, entry points, and dependency listing.
-- Provide README covering installation, usage, device selection, benchmarks, and troubleshooting.
-- Include `requirements.txt`, optional `pyproject.toml`, MIT license, and example quickstart script.
-- Set up GitHub Actions workflow for CPU-based tests/deploy.
+- Deliver a packaged `pyannote-openvino` distribution (`pyproject.toml` + `README.md` + MIT license) that can be installed via `pip`/`pip install -e .`.
+- Document the CI/CD setup (GitHub + GitLab) so maintainers know how tests, release builds, and artifacts are produced.
+- Provide release pipelines that build the wheel/tarball on tags and publish the artifacts (GitHub release + GitLab artifacts).
 
 ## TESTS
-- Verify package can be installed locally via `pip install -e .` and imports `pyannote_openvino` with OV pipeline classes.
-- Run README example script to ensure usage instructions are valid after packaging (calls pipeline, prints diarization timeline).
-- Ensure GitHub Actions workflow passes (at least by running simulated commands locally matching steps) or provide log of manual steps.
+- `python -m build` succeeds after the tests and checkout, confirming the project metadata is valid.
+- GitHub Actions `ci.yml` passes on every push/PR, and the `release.yml` job runs on tags, builds the package, and uploads the artifacts.
+- GitLab CI runs the same `pytest` command and builds the package on tag pushes, making the `dist/` output available as an artifact.
 
 ## PLAN
-1. Define `setup.cfg`/`pyproject.toml` or `setup.py` describing package metadata, dependencies, entry points for OV pipeline classes.
-2. Write README detailing installation (with optional GPU support), usage example (OV pipeline drop-in), benchmarking results summary, and troubleshooting tips.
-3. Provide example scripts referencing pipeline classes and showing audio inference results.
-4. Create MIT LICENSE file and `requirements.txt` reflecting minimal dependencies.
-5. Add GitHub Actions workflow file (maybe `.github/workflows/ci.yml`) running tests on CPU (e.g., pyro tests) and packaging checks.
-6. Document `OVSpeakerDiarization` usage in README and include e.g., CLI instructions for running end-to-end test.
+1. Ensure the README/README sections describe how to install the package, run the tests, and invoke the new `docs/transcribe_v3.py` CLI.
+2. Add `.github/workflows/ci.yml` to run `pytest` on pushes/PRs and `.github/workflows/release.yml` to rebuild/test on tags, create a GitHub release, and upload the dist files.
+3. Add `.gitlab-ci.yml` with `test` and `release` stages that mirror the GitHub flow, publishing `dist/` artifacts on tags.
+4. Update `.gitignore` so build artifacts (`dist/`, `build/`, `*.egg-info`) stay out of git.
+5. Document in README how to trigger the pipelines and how releases are produced from tags.
+6. Run `python -m build` locally after tests pass to verify packaging.
 
 ## CODE
-- Package stub modules under `pyannote_openvino/__init__.py`. Expose `OVSpeakerDiarization` class.
-- `README.md` with detail sections.
-- `.github/workflows/ci.yml` with at least install/test steps.
-- `scripts/e2e_test.py` that loads pipeline, runs on sample audio, and prints DER (for final step).
+- `.github/workflows/ci.yml` – installs `[stt,test]` extras and runs `python -m pytest`.
+- `.github/workflows/release.yml` – runs on tag pushes, installs `[stt,test,build]`, runs tests, builds the package, and uses `softprops/action-gh-release` to publish dist files.
+- `.gitlab-ci.yml` – Linux pipeline with `test` and `release` jobs, producing artifacts for `dist/`.

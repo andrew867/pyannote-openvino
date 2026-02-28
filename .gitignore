@@ -10,3 +10,9 @@ pip-wheel-metadata/
 *.log
 .Python
 .pytest_cache/
+dist/
+build/
+*.egg-info/
+ffmpeg/
+models/
+samples/

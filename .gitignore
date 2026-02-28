@@ -1,0 +1,12 @@
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+pip-wheel-metadata/
+*.whl
+.pip_temp/
+*.onnx
+*.log
+.Python
+.pytest_cache/

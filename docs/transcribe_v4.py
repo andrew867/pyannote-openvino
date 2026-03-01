@@ -68,6 +68,7 @@ def run_whisper(
             compile=False,
         )
         exported.save_pretrained(str(inferred_dir))
+    print(f"Whisper OpenVINO device target: {device}")
     model = OVModelForSpeechSeq2Seq.from_pretrained(str(inferred_dir), device=device)
     pipe = hf_pipeline(
         "automatic-speech-recognition",

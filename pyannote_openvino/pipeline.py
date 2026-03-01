@@ -158,10 +158,10 @@ def _to_torch_device(device: Union[str, torch.device]) -> torch.device:
         return device
 
     name = str(device).lower()
-    if name.startswith("gpu"):
-        parts = name.split(".")
-        idx = int(parts[1]) if len(parts) > 1 else 0
-        return torch.device(f"cuda:{idx}")
+    # OpenVINO GPU targets Intel iGPU and does not imply CUDA support.
+    # pyannote internals (feature extraction/clustering glue) should stay on CPU.
+    if name.startswith("gpu") or name.startswith("auto"):
+        return torch.device("cpu")
 
     return torch.device("cpu")
 

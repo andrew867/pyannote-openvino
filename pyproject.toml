@@ -8,6 +8,19 @@ version = "0.1.0"
 description = "Drop-in, OpenVINO-accelerated speaker diarization for pyannote.audio."
 readme = "README.md"
 requires-python = ">=3.11,<3.14"
+license = "MIT"
+authors = [{ name = "Andrew Green" }]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
 dependencies = [
     "numpy>=2.2.6",
     "scipy>=1.17.1",
@@ -22,6 +35,11 @@ dependencies = [
     "onnx>=1.20.1",
     "onnxruntime>=1.24.1",
 ]
+
+[project.urls]
+Homepage = "https://github.com/andrew867/pyannote-openvino"
+Repository = "https://github.com/andrew867/pyannote-openvino"
+Issues = "https://github.com/andrew867/pyannote-openvino/issues"
 
 [project.optional-dependencies]
 stt = [

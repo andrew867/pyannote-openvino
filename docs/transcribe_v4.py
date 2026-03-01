@@ -53,14 +53,21 @@ def run_whisper(
     ov_source = Path(ov_model_dir)
     ov_source = ov_source.resolve() if ov_source.exists() else ov_source
 
+    def has_whisper_ov_export(path: Path) -> bool:
+        # Seq2seq Whisper exports usually write encoder/decoder XML files.
+        monolith = path / "openvino_model.xml"
+        encoder = path / "openvino_encoder_model.xml"
+        decoder = path / "openvino_decoder_model.xml"
+        return monolith.exists() or (encoder.exists() and decoder.exists())
+
     # Accept either a dedicated whisper export directory or a generic models root.
-    if ov_source.exists() and not (ov_source / "openvino_model.xml").exists():
+    if ov_source.exists() and not has_whisper_ov_export(ov_source):
         inferred_dir = ov_source / f"{whisper_model.split('/')[-1]}-ov"
     else:
         inferred_dir = ov_source
     inferred_dir.mkdir(parents=True, exist_ok=True)
 
-    if not (inferred_dir / "openvino_model.xml").exists():
+    if not has_whisper_ov_export(inferred_dir):
         print(f"OpenVINO Whisper export not found in {inferred_dir}, exporting once...")
         exported = OVModelForSpeechSeq2Seq.from_pretrained(
             whisper_model,

@@ -15,6 +15,7 @@ from optimum.intel import OVModelForSpeechSeq2Seq
 from pyannote_openvino import OVSpeakerDiarization
 from pyannote.core import Annotation, Segment
 from transformers import AutoProcessor, pipeline as hf_pipeline
+from huggingface_hub.utils import RepositoryNotFoundError
 
 
 def load_audio(path: Path) -> dict[str, Any]:
@@ -37,7 +38,7 @@ def run_whisper(
     audio_path: Path,
     segments_cache: Path,
     whisper_model: str,
-    ov_model_dir: str,
+    ov_model_dir: Path | str,
     device: str,
 ) -> list[dict[str, Any]]:
     if segments_cache.exists():
@@ -50,7 +51,19 @@ def run_whisper(
     print(f"Audio length: {len(audio_input['array']) / AUDIO_RATE:.1f}s")
 
     processor = AutoProcessor.from_pretrained(whisper_model)
-    model = OVModelForSpeechSeq2Seq.from_pretrained(ov_model_dir, device=device)
+    ov_source = Path(ov_model_dir)
+    ov_ref = str(ov_source.resolve()) if ov_source.exists() else str(ov_model_dir)
+    try:
+        model = OVModelForSpeechSeq2Seq.from_pretrained(ov_ref, device=device)
+    except RepositoryNotFoundError as exc:  # pragma: no cover - deployment guard
+        if ov_source.exists():
+            raise RuntimeError(
+                f"OpenVINO Whisper model exists at {ov_source}, but loading failed."
+            ) from exc
+        raise RuntimeError(
+            "Could not find the OpenVINO Whisper model. Run the exporter or point "
+            "--whisper-ov at the folder that holds the converted IR files."
+        ) from exc
     pipe = hf_pipeline(
         "automatic-speech-recognition",
         model=model,
@@ -166,7 +179,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output-json", type=Path, default=Path("artifacts/transcribed.json"))
     parser.add_argument("--output-txt", type=Path, default=Path("artifacts/transcribed.txt"))
     parser.add_argument("--whisper-model", type=str, default="openai/whisper-large-v3")
-    parser.add_argument("--whisper-ov", type=str, default="whisper-large-v3-ov")
+    parser.add_argument(
+        "--whisper-ov",
+        type=Path,
+        default=Path("models/ov"),
+        help="Folder containing the OpenVINO IR for Whisper (xml+bin)",
+    )
     parser.add_argument("--ov-dir", type=Path, default=Path("models/ov"))
     parser.add_argument("--device", type=str, default="GPU")
     parser.add_argument("--ffmpeg", type=Path, default=Path("ffmpeg/bin"))

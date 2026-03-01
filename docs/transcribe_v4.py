@@ -5,17 +5,13 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import warnings
 from pathlib import Path
 from typing import Any
 
 import librosa
 import numpy as np
 import torch
-from optimum.intel import OVModelForSpeechSeq2Seq
-from pyannote_openvino import OVSpeakerDiarization
-from pyannote.core import Annotation, Segment
-from transformers import AutoProcessor, pipeline as hf_pipeline
-from huggingface_hub.utils import RepositoryNotFoundError
 
 
 def load_audio(path: Path) -> dict[str, Any]:
@@ -27,7 +23,7 @@ def load_audio(path: Path) -> dict[str, Any]:
         waveform = samples.data.mean(0).numpy()
         sr = samples.sample_rate
     except Exception:
-        waveform, sr = librosa.load(path.strftime("%s"), sr=16_000, mono=True)
+        waveform, sr = librosa.load(str(path), sr=16_000, mono=True)
     if sr != 16_000:
         waveform = librosa.resample(waveform, orig_sr=sr, target_sr=16_000)
         sr = 16_000
@@ -41,6 +37,9 @@ def run_whisper(
     ov_model_dir: Path | str,
     device: str,
 ) -> list[dict[str, Any]]:
+    from optimum.intel import OVModelForSpeechSeq2Seq
+    from transformers import AutoProcessor, pipeline as hf_pipeline
+
     if segments_cache.exists():
         with segments_cache.open("r", encoding="utf-8") as f:
             segments = json.load(f)
@@ -52,18 +51,24 @@ def run_whisper(
 
     processor = AutoProcessor.from_pretrained(whisper_model)
     ov_source = Path(ov_model_dir)
-    ov_ref = str(ov_source.resolve()) if ov_source.exists() else str(ov_model_dir)
-    try:
-        model = OVModelForSpeechSeq2Seq.from_pretrained(ov_ref, device=device)
-    except RepositoryNotFoundError as exc:  # pragma: no cover - deployment guard
-        if ov_source.exists():
-            raise RuntimeError(
-                f"OpenVINO Whisper model exists at {ov_source}, but loading failed."
-            ) from exc
-        raise RuntimeError(
-            "Could not find the OpenVINO Whisper model. Run the exporter or point "
-            "--whisper-ov at the folder that holds the converted IR files."
-        ) from exc
+    ov_source = ov_source.resolve() if ov_source.exists() else ov_source
+
+    # Accept either a dedicated whisper export directory or a generic models root.
+    if ov_source.exists() and not (ov_source / "openvino_model.xml").exists():
+        inferred_dir = ov_source / f"{whisper_model.split('/')[-1]}-ov"
+    else:
+        inferred_dir = ov_source
+    inferred_dir.mkdir(parents=True, exist_ok=True)
+
+    if not (inferred_dir / "openvino_model.xml").exists():
+        print(f"OpenVINO Whisper export not found in {inferred_dir}, exporting once...")
+        exported = OVModelForSpeechSeq2Seq.from_pretrained(
+            whisper_model,
+            export=True,
+            compile=False,
+        )
+        exported.save_pretrained(str(inferred_dir))
+    model = OVModelForSpeechSeq2Seq.from_pretrained(str(inferred_dir), device=device)
     pipe = hf_pipeline(
         "automatic-speech-recognition",
         model=model,
@@ -90,6 +95,9 @@ def run_diarization(
     ov_dir: Path,
     device: str,
 ) -> Annotation:
+    from pyannote_openvino import OVSpeakerDiarization
+    from pyannote.core import Annotation, Segment
+
     if cache_path.exists():
         annotation = Annotation()
         with cache_path.open("r", encoding="utf-8") as handle:
@@ -193,9 +201,21 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
-    if args.ffmpeg.is_dir():
-        os.add_dll_directory(str(args.ffmpeg))
-        os.environ["PATH"] = str(args.ffmpeg) + os.pathsep + os.environ.get("PATH", "")
+    ffmpeg_path = args.ffmpeg.expanduser()
+    if ffmpeg_path.is_dir():
+        ffmpeg_abs = ffmpeg_path.resolve()
+        try:
+            os.add_dll_directory(str(ffmpeg_abs))
+        except (AttributeError, OSError) as exc:
+            print(f"Warning: could not register FFmpeg DLL path {ffmpeg_abs}: {exc}")
+        os.environ["PATH"] = str(ffmpeg_abs) + os.pathsep + os.environ.get("PATH", "")
+
+    # pyannote warns loudly when torchcodec is unavailable; this pipeline does not rely on it.
+    warnings.filterwarnings(
+        "ignore",
+        message="torchcodec is not installed correctly*",
+        module="pyannote.audio.core.io",
+    )
     segments = run_whisper(
         args.audio,
         args.segments_cache,

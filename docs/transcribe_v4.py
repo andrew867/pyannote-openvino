@@ -67,9 +67,23 @@ def run_whisper(
             export=True,
             compile=False,
         )
-        exported.save_pretrained(str(inferred_dir))
+        try:
+            exported.save_pretrained(str(inferred_dir))
+        except RuntimeError as exc:
+            print(
+                "Warning: could not persist Whisper OpenVINO model to disk; "
+                "falling back to in-memory export for this run."
+            )
+            model = OVModelForSpeechSeq2Seq.from_pretrained(
+                whisper_model,
+                export=True,
+                device=device,
+            )
+        else:
+            model = OVModelForSpeechSeq2Seq.from_pretrained(str(inferred_dir), device=device)
+    else:
+        model = OVModelForSpeechSeq2Seq.from_pretrained(str(inferred_dir), device=device)
     print(f"Whisper OpenVINO device target: {device}")
-    model = OVModelForSpeechSeq2Seq.from_pretrained(str(inferred_dir), device=device)
     pipe = hf_pipeline(
         "automatic-speech-recognition",
         model=model,
@@ -180,6 +194,27 @@ def dump_transcript(transcript: list[dict[str, Any]], json_path: Path, txt_path:
 AUDIO_RATE = 16_000
 
 
+def assert_openvino_device_available(device: str) -> None:
+    from openvino import Core
+
+    requested = str(device).upper()
+    available = Core().available_devices
+    if requested.startswith("GPU"):
+        if not any(d.startswith("GPU") for d in available):
+            raise RuntimeError(
+                f"Requested OpenVINO device '{requested}' but no GPU device is available. "
+                f"Available OpenVINO devices: {available}"
+            )
+    elif requested not in {"AUTO", "CPU"}:
+        # Allow explicit ids like GPU.0 and unknown custom plugins only if available.
+        if requested not in available and not any(requested.startswith(f"{d}.") for d in available):
+            raise RuntimeError(
+                f"Requested OpenVINO device '{requested}' is not available. "
+                f"Available OpenVINO devices: {available}"
+            )
+    print(f"OpenVINO available devices: {available}. Requested: {requested}")
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Intel iGPU diarization + transcription.")
     parser.add_argument("--audio", type=Path, required=True)
@@ -217,6 +252,7 @@ def main() -> None:
         message="torchcodec is not installed correctly*",
         module="pyannote.audio.core.io",
     )
+    assert_openvino_device_available(args.device)
     segments = run_whisper(
         args.audio,
         args.segments_cache,

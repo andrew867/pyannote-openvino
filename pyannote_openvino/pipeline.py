@@ -178,6 +178,12 @@ class OVSpeakerDiarization(SpeakerDiarization):
         segmentation_model = OVSegmentationModel(Path(segmentation_xml), device=device)
         config = embedding_config or OVEmbeddingConfig(xml_path=Path(embedding_xml))
         torch_device = _to_torch_device(device)
+        if torch_device.type == "cuda":
+            raise RuntimeError(
+                "CUDA torch device selected for OVSpeakerDiarization. "
+                "This pipeline uses OpenVINO devices (e.g. GPU for Intel iGPU) and "
+                "must keep torch-side execution on CPU."
+            )
 
         with _patch_pretrained_embedding(config, torch_device):
             super().__init__(segmentation=segmentation_model, embedding=config, **kwargs)

@@ -35,5 +35,13 @@ jobs:
       - name: Install project
         run: python -m pip install -e .[stt,test]
 
+      - name: Report OV model artifacts
+        run: |
+          if [ -f models/ov/segmentation.xml ] && [ -f models/ov/embedding.xml ]; then
+            echo "OV artifacts found: integration test will run."
+          else
+            echo "OV artifacts missing: integration test will be skipped by pytest."
+          fi
+
       - name: Run pytest
-        run: python -m pytest
+        run: python -m pytest -ra

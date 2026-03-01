@@ -20,7 +20,13 @@ test:
   stage: test
   script:
     - python -m pip install -e .[stt,test]
-    - python -m pytest
+    - |
+      if [ -f models/ov/segmentation.xml ] && [ -f models/ov/embedding.xml ]; then
+        echo "OV artifacts found: integration test will run."
+      else
+        echo "OV artifacts missing: integration test will be skipped by pytest."
+      fi
+    - python -m pytest -ra
 
 release:
   stage: release
@@ -28,7 +34,13 @@ release:
     - tags
   script:
     - python -m pip install -e .[stt,test,build]
-    - python -m pytest
+    - |
+      if [ -f models/ov/segmentation.xml ] && [ -f models/ov/embedding.xml ]; then
+        echo "OV artifacts found: integration test will run."
+      else
+        echo "OV artifacts missing: integration test will be skipped by pytest."
+      fi
+    - python -m pytest -ra
     - python -m build
   artifacts:
     paths:

@@ -11,7 +11,7 @@ Intel GPUs without relying on PyTorch FFT patches.
    ```bash
    python -m pip install -e .[stt]
    ```
-   The `[stt]` extra pulls the `openai-whisper` model that the `docs/transcribe_v3.py`
+   The `[stt]` extra pulls the `openai-whisper` model that the `docs/transcribe_v4.py`
    helper uses to turn diarization segments into per-speaker text. If you only need
    the OV pipeline, install the base requirements listed in `requirements.txt`.
 3. Ensure you have an FFmpeg binary on `PATH` (the repo contains shared libraries under
@@ -62,8 +62,8 @@ By default the segmentation/embedding classes mirror the pyannote interface
 (`num_frames`, `receptive_field_size`, etc.), so the existing clustering code and
 pipeline utilities continue to work.
 
-## Speaker-aware transcription helper (`transcribe_v3`)
-The repo ships a simple CLI under `docs/transcribe_v3.py` that puts it all together:
+## Speaker-aware transcription helper (`transcribe_v4`)
+The repo ships a single CLI under `docs/transcribe_v4.py` that accelerates both diarization and transcription on Intel iGPU:
 1. Run the OpenVINO diarization pipeline.
 2. Load the same WAV file into memory and crop each speaker turn.
 3. Feed each crop to `openai-whisper` (default `tiny`) to produce text for the
@@ -71,11 +71,11 @@ The repo ships a simple CLI under `docs/transcribe_v3.py` that puts it all toget
 
 Example usage:
 ```bash
-python docs/transcribe_v3.py \
+python docs/transcribe_v4.py \
   --audio samples/Stirling\ Lennon\ Clips_mixdown.wav \
-  --device CPU \
-  --stt-model tiny \
-  --output artifacts/transcribe_v3.txt
+  --device GPU \
+  --whisper-ov whisper-large-v3-ov \
+  --output-txt artifacts/transcribe_v4.txt
 ```
 
 The CLI prints timestamps, speaker labels, and the recognized text, and also
@@ -86,7 +86,7 @@ writes a TSV-style summary to the `--output` path for later reference.
 - `python scripts/phase2/validate_onnx.py` compares the ONNX exports against the
   original torch models.
 - `scripts/phase3/validate_ov.py` loads the IR models and runs dummy inference.
-- `docs/transcribe_v3.py` serves as an end-to-end smoke test (diarization + STT) on
+- `docs/transcribe_v4.py` serves as the end-to-end Intel GPU smoke test (diarization + STT) on
   any WAV file.
 
 ## Directory layout
@@ -95,7 +95,7 @@ writes a TSV-style summary to the `--output` path for later reference.
 - `scripts/phase{1..3}/` – export, conversion, and validation helpers.
 - `pyannote_openvino/` – the runtime library that wires `OVSegmentationModel`,
   `OVEmbeddingModel`, and `OVSpeakerDiarization` into pyannote’s APIs.
-- `docs/transcribe_v3.py` – per-speaker transcription CLI.
+- `docs/transcribe_v4.py` – per-speaker transcription CLI.
 
 ## Troubleshooting
 - If `torchaudio` fails to read your audio, install FFmpeg and point `PATH` at

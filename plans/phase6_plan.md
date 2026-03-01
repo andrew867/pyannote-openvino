@@ -11,7 +11,7 @@
 - GitLab CI runs the same `pytest` command and builds the package on tag pushes, making the `dist/` output available as an artifact.
 
 ## PLAN
-1. Ensure the README/README sections describe how to install the package, run the tests, and invoke the new `docs/transcribe_v3.py` CLI.
+1. Ensure the README sections describe how to install the package, run the tests, and invoke the new `docs/transcribe_v4.py` CLI.
 2. Add `.github/workflows/ci.yml` to run `pytest` on pushes/PRs and `.github/workflows/release.yml` to rebuild/test on tags, create a GitHub release, and upload the dist files.
 3. Add `.gitlab-ci.yml` with `test` and `release` stages that mirror the GitHub flow, publishing `dist/` artifacts on tags.
 4. Update `.gitignore` so build artifacts (`dist/`, `build/`, `*.egg-info`) stay out of git.
